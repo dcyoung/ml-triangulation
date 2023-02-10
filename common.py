@@ -7,6 +7,43 @@ import operator
 TRANS_GPS_TO_XYZ = Transformer.from_crs("EPSG:4326", "EPSG:4978", always_xy=True)
 
 
+def geo_to_cartesian_m(lat_long_alt: npt.NDArray) -> npt.NDArray:
+    """Converts lat/long/altitude to cartesian coordinates (in meters)
+
+    Args:
+        lat_long_alt (npt.NDArray): geo coordinates (n_samples, 3)
+
+    Returns:
+        npt.NDArray: cartesian coordinates in meters (n_samples, 3)
+    """
+    return np.stack(
+        list(
+            TRANS_GPS_TO_XYZ.transform(
+                lat_long_alt[:, 1], lat_long_alt[:, 0], lat_long_alt[:, 2]
+            )
+        ),
+        axis=1,
+    )
+
+
+def cartesian_to_geo(xyz_m: npt.NDArray) -> npt.NDArray:
+    """Converts cartesian coordinates (m) to lat/long/altitude
+
+    Args:
+        xyz_m (npt.NDArray): cartesian coordinates in meters (n_samples, 3)
+
+    Returns:
+        npt.NDArray: geo coordinates (lat/long/alt) (n_samples, 3)
+    """
+    long, lat, alt = TRANS_GPS_TO_XYZ.transform(
+        xyz_m[:, 0],
+        xyz_m[:, 1],
+        xyz_m[:, 2],
+        direction="INVERSE",
+    )
+    return np.stack([lat, long, alt], axis=1)
+
+
 def calculate_centroids(
     coordinates_xyz_m: npt.NDArray,
     project: bool = True,
@@ -50,43 +87,6 @@ def calculate_centroids(
     projected_centroid_xyz_m = geo_to_cartesian_m(lat_long_alt=lat_long_alt)
 
     return projected_centroid_xyz_m
-
-
-def geo_to_cartesian_m(lat_long_alt: npt.NDArray) -> npt.NDArray:
-    """Converts lat/long/altitude to cartesian coordinates (in meters)
-
-    Args:
-        lat_long_alt (npt.NDArray): geo coordinates (n_samples, 3)
-
-    Returns:
-        npt.NDArray: cartesian coordinates in meters (n_samples, 3)
-    """
-    return np.stack(
-        list(
-            TRANS_GPS_TO_XYZ.transform(
-                lat_long_alt[:, 1], lat_long_alt[:, 0], lat_long_alt[:, 2]
-            )
-        ),
-        axis=1,
-    )
-
-
-def cartesian_to_geo(xyz_m: npt.NDArray) -> npt.NDArray:
-    """Converts cartesian coordinates (m) to lat/long/altitude
-
-    Args:
-        xyz_m (npt.NDArray): cartesian coordinates in meters (n_samples, 3)
-
-    Returns:
-        npt.NDArray: geo coordinates (lat/long/alt) (n_samples, 3)
-    """
-    long, lat, alt = TRANS_GPS_TO_XYZ.transform(
-        xyz_m[:, 0],
-        xyz_m[:, 1],
-        xyz_m[:, 2],
-        direction="INVERSE",
-    )
-    return np.stack([lat, long, alt], axis=1)
 
 
 def fspl_distance(rssi: npt.NDArray, frequency_mhz: npt.NDArray) -> npt.NDArray:
