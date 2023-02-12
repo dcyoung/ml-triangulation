@@ -36,8 +36,8 @@ def denorm_lat_long(normalized_lat_long: npt.NDArray) -> npt.NDArray:
 def normalize_lat_long(lat_long_deg: npt.NDArray) -> npt.NDArray:
     """Normalizes lat/long to range -1:1"""
     lat_long = enforce_safe_lat_long(lat_long_deg=lat_long_deg)
-    lat_long[:, 0] = 1 - 2 * (lat_long[:, 0] + 90.0) / 180.0
-    lat_long[:, 1] = 1 - 2 * (lat_long[:, 1] + 180.0) / 360.0
+    lat_long[:, 0] = 2 * (lat_long[:, 0] + 90.0) / 180.0 - 1
+    lat_long[:, 1] = 2 * (lat_long[:, 1] + 180.0) / 360.0 - 1
     return lat_long
 
 
