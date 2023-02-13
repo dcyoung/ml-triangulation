@@ -1,8 +1,6 @@
-import torch
 from torch import nn
 from torch import Tensor
-import torch.nn.functional as F
-from typing import Tuple
+from loss import DisMaxLossFirstPart
 
 
 class MlpTriangulationModel(nn.Module):
@@ -28,17 +26,16 @@ class MlpTriangulationModel(nn.Module):
                 + ([nn.BatchNorm1d(fan_out)] if b_norm else [])
                 + [nn.ReLU()]
             )
-
-        layers.append(nn.Linear(fan_in_out[-1][-1], output_size))
+        # layers.append(nn.Linear(fan_in_out[-1][-1], output_size))
         # parameter init
-        with torch.no_grad():
-            layers[-1].weight *= 0.1  # make last layer less confident
+        # with torch.no_grad():
+        #     layers[-1].weight *= 0.1  # make last layer less confident
+        layers.append(
+            DisMaxLossFirstPart(
+                num_features=fan_in_out[-1][-1], num_classes=output_size
+            )
+        )
         self.layers = nn.Sequential(*layers)
 
-    def forward(self, samples: Tensor, targets: Tensor = None) -> Tuple[Tensor, Tensor]:
-        logits = self.layers(samples)
-        if targets is None:
-            loss = None
-        else:
-            loss = F.cross_entropy(logits, targets)
-        return logits, loss
+    def forward(self, samples: Tensor) -> Tensor:
+        return self.layers(samples)
