@@ -5,33 +5,7 @@ import torch.nn.functional as F
 import math
 import numpy as np
 
-_THRESHOLDS = [
-    0,
-    0.1,
-    0.2,
-    0.3,
-    0.4,
-    0.5,
-    1,
-    2,
-    3,
-    4,
-    5,
-    10,
-    15,
-    20,
-    25,
-    30,
-    35,
-    40,
-    45,
-    50,
-    60,
-    70,
-    80,
-    90,
-    100,
-]
+# _THRESHOLDS = [ 0, 0.1, 0.2, 0.3, 0.4, 0.5, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100]
 
 
 class DisMaxLossFirstPart(nn.Module):
@@ -48,12 +22,12 @@ class DisMaxLossFirstPart(nn.Module):
         self.temperature = nn.Parameter(
             torch.tensor([temperature]), requires_grad=False
         )
-        self.validationset_available = nn.Parameter(
-            torch.tensor([False]), requires_grad=False
-        )
-        self.precomputed_thresholds = nn.Parameter(
-            torch.Tensor(2, len(_THRESHOLDS)), requires_grad=False
-        )
+        # self.validationset_available = nn.Parameter(
+        #     torch.tensor([False]), requires_grad=False
+        # )
+        # self.precomputed_thresholds = nn.Parameter(
+        #     torch.Tensor(2, len(_THRESHOLDS)), requires_grad=False
+        # )
 
     def forward(self, features: Tensor) -> Tensor:
         distances_from_normalized_vectors = torch.cdist(
@@ -67,16 +41,6 @@ class DisMaxLossFirstPart(nn.Module):
         )
         logits = -(isometric_distances + isometric_distances.mean(dim=1, keepdim=True))
         return logits / self.temperature
-
-    def mmles_scores(self, logits: Tensor) -> Tensor:
-        """Maximum Mean Logit Entropy Score"""
-        probabilities = nn.Softmax(dim=1)(logits)
-        scores = (
-            logits.max(dim=1)[0]
-            + logits.mean(dim=1)
-            + (probabilities * torch.log(probabilities)).sum(dim=1)
-        )
-        return scores
 
     def extra_repr(self) -> str:
         return "num_features={}, num_classes={}".format(
@@ -93,24 +57,22 @@ class DisMaxLossSecondPart(nn.Module):
         self.entropic_scale = 10.0
         self.alpha = 1.0
 
-    def precompute_thresholds(
-        self, logits: Tensor, partition: str = "validation"
-    ) -> Tensor:
-        scores = self.model_classifier.scores(logits).detach().cpu().numpy()
-        partition_index = 0 if partition == "train" else 1
-        for index, percentile in enumerate(_THRESHOLDS):
-            self.model_classifier.precomputed_thresholds[
-                partition_index, index
-            ] = np.percentile(scores, percentile)
-        print(
-            "In-Distribution-Based Precomputed Thresholds [Based on Train Set]:\n",
-            self.model_classifier.precomputed_thresholds.data[0],
-        )
-        if self.model_classifier.validationset_available.data.item():
-            print(
-                "In-Distribution-Based Precomputed Thresholds [Based on Valid Set]:\n",
-                self.model_classifier.precomputed_thresholds.data[1],
-            )
+    # def precompute_thresholds(self, logits: Tensor, partition: str = "validation"):
+    #     scores = self.model_classifier.scores(logits).detach().cpu().numpy()
+    #     partition_index = 0 if partition == "train" else 1
+    #     for index, percentile in enumerate(_THRESHOLDS):
+    #         self.model_classifier.precomputed_thresholds[
+    #             partition_index, index
+    #         ] = np.percentile(scores, percentile)
+    #     print(
+    #         "In-Distribution-Based Precomputed Thresholds [Based on Train Set]:\n",
+    #         self.model_classifier.precomputed_thresholds.data[0],
+    #     )
+    #     if self.model_classifier.validationset_available.data.item():
+    #         print(
+    #             "In-Distribution-Based Precomputed Thresholds [Based on Valid Set]:\n",
+    #             self.model_classifier.precomputed_thresholds.data[1],
+    #         )
 
     def forward(self, logits: Tensor, targets: Tensor) -> Tensor:
         ##############################################################################

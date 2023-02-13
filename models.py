@@ -1,6 +1,28 @@
+import torch
 from torch import nn
 from torch import Tensor
 from loss import DisMaxLossFirstPart
+from scipy.special import softmax as softmax_np
+import numpy as np
+import numpy.typing as npt
+
+
+def mmles_torch(logits: Tensor) -> Tensor:
+    """Maximum Mean Logit Entropy Score"""
+    probabilities = nn.Softmax(dim=1)(logits)
+    return (
+        logits.max(dim=1)[0]
+        + logits.mean(dim=1)
+        + (probabilities * torch.log(probabilities)).sum(dim=1)
+    )
+
+
+def mmles_np(logits: npt.NDArray) -> npt.NDArray:
+    """Maximum Mean Logit Entropy Score"""
+    probabilities = softmax_np(logits, axis=1)
+    return (
+        logits.max(1) + logits.mean(1) + (probabilities * np.log(probabilities)).sum(1)
+    )
 
 
 class MlpTriangulationModel(nn.Module):
@@ -41,11 +63,3 @@ class MlpTriangulationModel(nn.Module):
     def predict_softmax_scores(self, samples: Tensor) -> Tensor:
         logits = self.forward(samples)
         return self.get_softmax_scores_for_logits(logits)
-
-    def get_mmles_scores_for_logits(self, logits: Tensor) -> Tensor:
-        return self.classifier.mmles_scores(logits)
-
-    def predict_mmles_scores(self, samples: Tensor) -> Tensor:
-        """Maximum Mean Logit Entropy Score"""
-        logits = self.forward(samples)
-        return self.get_mmles_scores_for_logits(logits)
