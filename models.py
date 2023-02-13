@@ -26,16 +26,26 @@ class MlpTriangulationModel(nn.Module):
                 + ([nn.BatchNorm1d(fan_out)] if b_norm else [])
                 + [nn.ReLU()]
             )
-        # layers.append(nn.Linear(fan_in_out[-1][-1], output_size))
-        # parameter init
-        # with torch.no_grad():
-        #     layers[-1].weight *= 0.1  # make last layer less confident
-        layers.append(
-            DisMaxLossFirstPart(
-                num_features=fan_in_out[-1][-1], num_classes=output_size
-            )
+        self.classifier = DisMaxLossFirstPart(
+            num_features=fan_in_out[-1][-1], num_classes=output_size
         )
+        layers.append(self.classifier)
         self.layers = nn.Sequential(*layers)
 
     def forward(self, samples: Tensor) -> Tensor:
         return self.layers(samples)
+
+    def get_softmax_scores_for_logits(self, logits: Tensor) -> Tensor:
+        return nn.Softmax(dim=1)(logits)
+
+    def predict_softmax_scores(self, samples: Tensor) -> Tensor:
+        logits = self.forward(samples)
+        return self.get_softmax_scores_for_logits(logits)
+
+    def get_mmles_scores_for_logits(self, logits: Tensor) -> Tensor:
+        return self.classifier.mmles_scores(logits)
+
+    def predict_mmles_scores(self, samples: Tensor) -> Tensor:
+        """Maximum Mean Logit Entropy Score"""
+        logits = self.forward(samples)
+        return self.get_mmles_scores_for_logits(logits)
