@@ -11,7 +11,7 @@ import numpy as np
 class DisMaxLossFirstPart(nn.Module):
     """This part replaces the model classifier output layer nn.Linear()."""
 
-    def __init__(self, num_features, num_classes, temperature=1.0):
+    def __init__(self, num_features: int, num_classes: int, temperature: float = 1.0):
         super(DisMaxLossFirstPart, self).__init__()
         self.num_features = num_features
         self.num_classes = num_classes
@@ -22,13 +22,7 @@ class DisMaxLossFirstPart(nn.Module):
         self.temperature = nn.Parameter(
             torch.tensor([temperature]), requires_grad=False
         )
-        # self.validationset_available = nn.Parameter(
-        #     torch.tensor([False]), requires_grad=False
-        # )
-        # self.precomputed_thresholds = nn.Parameter(
-        #     torch.Tensor(2, len(_THRESHOLDS)), requires_grad=False
-        # )
-
+    
     def forward(self, features: Tensor) -> Tensor:
         distances_from_normalized_vectors = torch.cdist(
             F.normalize(features),
@@ -57,30 +51,7 @@ class DisMaxLossSecondPart(nn.Module):
         self.entropic_scale = 10.0
         self.alpha = 1.0
 
-    # def precompute_thresholds(self, logits: Tensor, partition: str = "validation"):
-    #     scores = self.model_classifier.scores(logits).detach().cpu().numpy()
-    #     partition_index = 0 if partition == "train" else 1
-    #     for index, percentile in enumerate(_THRESHOLDS):
-    #         self.model_classifier.precomputed_thresholds[
-    #             partition_index, index
-    #         ] = np.percentile(scores, percentile)
-    #     print(
-    #         "In-Distribution-Based Precomputed Thresholds [Based on Train Set]:\n",
-    #         self.model_classifier.precomputed_thresholds.data[0],
-    #     )
-    #     if self.model_classifier.validationset_available.data.item():
-    #         print(
-    #             "In-Distribution-Based Precomputed Thresholds [Based on Valid Set]:\n",
-    #             self.model_classifier.precomputed_thresholds.data[1],
-    #         )
-
     def forward(self, logits: Tensor, targets: Tensor) -> Tensor:
-        ##############################################################################
-        ##############################################################################
-        """Probabilities and logarithms are calculated separately and sequentially."""
-        """Therefore, nn.CrossEntropyLoss() must not be used to calculate the loss."""
-        ##############################################################################
-        ##############################################################################
         batch_size = logits.size(0)
         probabilities = (
             nn.Softmax(dim=1)(self.entropic_scale * logits)
