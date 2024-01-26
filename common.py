@@ -1,9 +1,7 @@
 import numpy.typing as npt
 import numpy as np
 from pyproj import Transformer
-from functools import reduce
 from tqdm import tqdm
-import operator
 
 RADIUS_EARTH_KM = 6373.0
 RADIUS_EARTH_M = RADIUS_EARTH_KM * 1000
@@ -107,7 +105,7 @@ def geo_to_cartesian_m(lat_long_alt: npt.NDArray) -> npt.NDArray:
     )
 
 
-def cartesian_to_geo(xyz_m: npt.NDArray) -> npt.NDArray:
+def cartesian_m_to_geo(xyz_m: npt.NDArray) -> npt.NDArray:
     """Converts cartesian coordinates (m) to lat/long/altitude
 
     Args:
@@ -125,49 +123,31 @@ def cartesian_to_geo(xyz_m: npt.NDArray) -> npt.NDArray:
     return np.stack([lat, long, alt], axis=1)
 
 
-def calculate_centroids(
-    coordinates_xyz_m: npt.NDArray,
-    project: bool = True,
+def calculate_centroid_geo(
+    lat_long_alt: npt.NDArray,
 ) -> npt.NDArray:
     """
     Calculate the centroids for each sample. A centroid is the center of mass on \
-        the surface of the earth between the various coordinates. For relatively small \
-        distances (nearby points on a sphere), a projection of the cartesian \
-        centroid is probably fine
+        the surface of the earth between the various coordinates.
 
     Args:
-        coordinates_xyz_m (npt.NDArray): (n_coords_per_sample, n_samples, 3)
-        project (bool): if True, project the coordinate to the surface of the earth... otherwise returns a purely cartesian centroid
+        lat_long_alt (npt.NDArray): geo coordinates (n_samples, 3)
     Returns:
-        npt.NDArray: (n_samples, 3)
+        npt.NDArray: (3)
     """
-    # Make sure inputs are as expected
-    n_coords_per_sample, n_samples, n_dim = coordinates_xyz_m.shape
-    assert n_dim == 3  # each coord should be 3 dimensional (xyz)
+    # calculate the cartesian centroid (this will be INSIDE the sphere)
+    coordinates_xyz_m = geo_to_cartesian_m(lat_long_alt)
 
     # calculate the cartesian centroid (this will be INSIDE the sphere)
-    cartesian_centroid_xyz_m = reduce(operator.add, tuple(coordinates_xyz_m)) / n_dim
-
-    if not project:
-        return cartesian_centroid_xyz_m
+    cartesian_centroid_xyz_m = np.mean(coordinates_xyz_m, axis=0)
 
     # convert to lat/long - will have a negative altitude
-    centroid_long, centroid_lat, _ = TRANS_GPS_TO_XYZ.transform(
-        cartesian_centroid_xyz_m[:, 0],
-        cartesian_centroid_xyz_m[:, 1],
-        cartesian_centroid_xyz_m[:, 2],
-        direction="INVERSE",
+    centroid_lat_long_alt = cartesian_m_to_geo(
+        np.expand_dims(cartesian_centroid_xyz_m, axis=0)
     )
+    centroid_lat_long_alt[:, 2] = 0  # zero out the altitude (ie: on the surface)
 
-    # ZERO out the altitude (ie: on the surface)
-    lat_long_alt = np.stack(
-        [centroid_lat, centroid_long, np.zeros_like(centroid_lat)], axis=1
-    )
-
-    # Project back out to the surface of the sphere by again calculating x,y,z from the same lat/long but with ZERO altitude (ie: on the surface)
-    projected_centroid_xyz_m = geo_to_cartesian_m(lat_long_alt=lat_long_alt)
-
-    return projected_centroid_xyz_m
+    return centroid_lat_long_alt[0]
 
 
 def fspl_distance(rssi: npt.NDArray, frequency_mhz: npt.NDArray) -> npt.NDArray:
